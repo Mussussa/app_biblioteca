@@ -22,14 +22,18 @@ module.exports = {
         ]
       });
 
-      const reservasLista = await Reserva.findAll({
-        where: { estado: 'pendente' },
-        limit: 5,
-        include: [
-          { model: Utilizador, attributes: ['id', 'nome_completo', 'codigo_institucional'] },
-          { model: Obra, attributes: ['id', 'titulo', 'autor'] }
-        ]
-      });
+const reservasLista = await Reserva.findAll({
+  where: { estado: 'pendente' },
+  limit: 5,
+  order: [['createdAt', 'DESC']],
+  include: [
+    { model: Utilizador, attributes: ['id', 'nome_completo', 'codigo_institucional'] },
+    { 
+      model: ExemplarFisico, 
+      include: [{ model: Obra, attributes: ['id', 'titulo', 'autor'] }] 
+    }
+  ]
+});
 
       res.json({
         metricas: { 

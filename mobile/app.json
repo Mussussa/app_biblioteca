@@ -1,29 +1,20 @@
 {
   "expo": {
-    "name": "biblioteca_app",
+    "name": "Biblioteca UniPúnguè",
     "slug": "biblioteca_app",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true
+    "icon": "./assets/unipungue.png",
+    "extra": {
+      "eas": {
+        "projectId": "49c29d49-ef24-42b3-a361-67daed29bca6"
+      }
     },
     "android": {
+      "package": "com.mussussa.biblioteca_app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/unipungue.png",
         "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+      }
     }
   }
 }

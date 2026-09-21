@@ -18,7 +18,7 @@ const FILTROS = [
   { id: 'todos', label: 'Todos' },
   { id: 'Físico', label: 'Físicos' }, // Alterado para corresponder ao ENUM 'Físico'
   { id: 'PDF', label: 'Digitais/PDF' },
-  { id: 'TCC', label: 'TCCs' }
+  
 ];
 
 export default function CatalogoScreen({ navigation, route }) {
@@ -60,10 +60,16 @@ export default function CatalogoScreen({ navigation, route }) {
     carregarObras(busca);
   }
 
-  const renderBookItem = ({ item }) => {
+const renderBookItem = ({ item }) => {
     const tipo = (item.tipo_recurso || '').toUpperCase();
     const isDigital = tipo === 'PDF' || tipo === 'DIGITAL' || tipo === 'EPUB';
-    const isDisponivel = item.quantidade_disponivel > 0 || isDigital;
+
+    // 1. Verifica se há exemplares com estado 'disponivel' no array
+    const temExemplarDisponivel = Array.isArray(item.ExemplarFisicos) && 
+      item.ExemplarFisicos.some(e => e.estado === 'disponivel');
+
+    // 2. Considera disponível se for digital, tiver exemplares disponíveis, ou se o backend enviar quantidade > 0
+    const isDisponivel = isDigital || temExemplarDisponivel || (item.quantidade_disponivel > 0);
 
     return (
       <TouchableOpacity
@@ -200,7 +206,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff', marginBottom: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff', marginBottom: 12 , marginTop: 30 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',

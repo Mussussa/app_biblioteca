@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,11 +19,13 @@ import {
   BookOpen,
   Bookmark,
   LogOut,
+  LogIn,
+  UserPlus,
   GraduationCap,
-  Building2,
-  RefreshCw
+  Building2
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 
 export function PerfilScreen({ navigation }) {
@@ -32,7 +34,8 @@ export function PerfilScreen({ navigation }) {
   const [reservas, setReservas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState('emprestimos'); // 'emprestimos' ou 'reservas'
+  const [abaAtiva, setAbaAtiva] = useState('emprestimos');
+  const [isLogged, setIsLogged] = useState(false);
 
   const handleNavegacaoSegura = (callback) => {
     if (Platform.OS === 'web') {
@@ -44,17 +47,26 @@ export function PerfilScreen({ navigation }) {
     if (callback) callback();
   };
 
+  const limparSessaoEIrParaLogin = async () => {
+    await AsyncStorage.removeItem('token');
+    setIsLogged(false);
+    setPerfil(null);
+    setEmprestimos([]);
+    setReservas([]);
+  };
+
   const carregarDadosPerfil = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
+      
+      // Se não houver token armazenado
       if (!token) {
-        Alert.alert('Sessão Expirada', 'Por favor, faça login novamente.', [
-          { text: 'Login', onPress: () => handleNavegacaoSegura(() => navigation.navigate('Login')) }
-        ]);
+        setIsLogged(false);
+        setLoading(false);
+        setRefreshing(false);
         return;
       }
 
-      // Requisições paralelas para otimizar o carregamento
       const [resPerfil, resEmprestimos, resReservas] = await Promise.all([
         api.get('/api/perfil'),
         api.get('/api/perfil/emprestimos'),
@@ -64,12 +76,14 @@ export function PerfilScreen({ navigation }) {
       setPerfil(resPerfil.data);
       setEmprestimos(resEmprestimos.data);
       setReservas(resReservas.data);
+      setIsLogged(true);
     } catch (error) {
       console.error('Erro ao carregar dados do perfil:', error);
-      if (error.response?.status === 401) {
-        Alert.alert('Sessão Expirada', 'A sua sessão expirou. Faça login novamente.', [
-          { text: 'Login', onPress: () => handleNavegacaoSegura(() => navigation.navigate('Login')) }
-        ]);
+      const status = error.response?.status;
+      
+      // Se for não autorizado (401) ou proibido/token expirado (403)
+      if (status === 401 || status === 403) {
+        await limparSessaoEIrParaLogin();
       } else {
         Alert.alert('Erro', 'Não foi possível carregar as informações do perfil.');
       }
@@ -79,9 +93,13 @@ export function PerfilScreen({ navigation }) {
     }
   };
 
-  useEffect(() => {
-    carregarDadosPerfil();
-  }, []);
+  // Executa toda vez que a aba "Perfil" entra em foco
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      carregarDadosPerfil();
+    }, [])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -98,7 +116,7 @@ export function PerfilScreen({ navigation }) {
           text: 'Sair',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.removeItem('token');
+            await limparSessaoEIrParaLogin();
             handleNavegacaoSegura(() => navigation.navigate('Login'));
           }
         }
@@ -115,13 +133,57 @@ export function PerfilScreen({ navigation }) {
     );
   }
 
+  // --- TELA PARA UTILIZADOR NÃO AUTENTICADO ---
+  if (!isLogged) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Perfil do Utilizador</Text>
+        </View>
+
+        <View style={styles.unauthContainer}>
+          <View style={styles.unauthAvatarCircle}>
+            <User size={48} color="#64748b" />
+          </View>
+          
+          <Text style={styles.unauthTitle}>Sessão Não Iniciada</Text>
+          <Text style={styles.unauthSubtitle}>
+            Aceda à sua conta para ver os seus empréstimos, reservas e dados académicos.
+          </Text>
+
+          <View style={styles.unauthActions}>
+            <TouchableOpacity 
+              style={styles.primaryAuthButton} 
+              onPress={() => handleNavegacaoSegura(() => navigation.navigate('Login'))}
+              activeOpacity={0.8}
+            >
+              <LogIn size={20} color="#ffffff" />
+              <Text style={styles.primaryAuthButtonText}>Entrar na Conta</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.secondaryAuthButton} 
+              onPress={() => handleNavegacaoSegura(() => navigation.navigate('Cadastro'))}
+              activeOpacity={0.8}
+            >
+              <UserPlus size={20} color="#2563eb" />
+              <Text style={styles.secondaryAuthButtonText}>Criar Nova Conta</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // --- TELA PARA UTILIZADOR AUTENTICADO ---
   return (
     <View style={styles.container}>
-      {/* Header Fixo do Perfil */}
+      {/* Header com o Botão de Logout Visível */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>15. Menu do Perfil</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <LogOut size={20} color="#ef4444" />
+        <Text style={styles.headerTitle}>Perfil do Utilizador</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
+          <LogOut size={18} color="#ef4444" />
+          <Text style={styles.logoutText}>Sair</Text>
         </TouchableOpacity>
       </View>
 
@@ -141,9 +203,11 @@ export function PerfilScreen({ navigation }) {
                 <User size={36} color="#2563eb" />
               </View>
             )}
-            <View style={styles.badgePerfil}>
-              <Text style={styles.badgeText}>{perfil?.perfil?.toUpperCase()}</Text>
-            </View>
+            {perfil?.perfil && (
+              <View style={styles.badgePerfil}>
+                <Text style={styles.badgeText}>{perfil.perfil.toUpperCase()}</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.nomeUtilizador}>{perfil?.nome_completo || 'Utilizador'}</Text>
@@ -237,7 +301,7 @@ export function PerfilScreen({ navigation }) {
                           }
                         ]}
                       >
-                        {item.estado.toUpperCase()}
+                        {item.estado?.toUpperCase()}
                       </Text>
                     </View>
                   </View>
@@ -288,7 +352,7 @@ export function PerfilScreen({ navigation }) {
                           }
                         ]}
                       >
-                        {item.estado.replace('_', ' ').toUpperCase()}
+                        {item.estado?.replace('_', ' ').toUpperCase()}
                       </Text>
                     </View>
                   </View>
@@ -322,8 +386,86 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0'
   },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e3a8a' },
-  logoutButton: { padding: 6 },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6
+  },
+  logoutText: { fontSize: 13, fontWeight: 'bold', color: '#ef4444' },
   scrollContent: { padding: 16 },
+
+  // --- ESTILOS DE NÃO AUTENTICADO ---
+  unauthContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  unauthAvatarCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20
+  },
+  unauthTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0f172a',
+    marginBottom: 8,
+    textAlign: 'center'
+  },
+  unauthSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 32,
+    maxWidth: 280
+  },
+  unauthActions: {
+    width: '100%',
+    maxWidth: 320,
+    gap: 12
+  },
+  primaryAuthButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb',
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8
+  },
+  primaryAuthButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: 'bold'
+  },
+  secondaryAuthButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8
+  },
+  secondaryAuthButtonText: {
+    color: '#2563eb',
+    fontSize: 15,
+    fontWeight: 'bold'
+  },
+
+  // --- ESTILOS DE CARTÃO E PERFIL ---
   userCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,

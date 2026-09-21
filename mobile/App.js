@@ -12,20 +12,20 @@ import HomeScreen from './screens/HomeScreen';
 import CatalogoScreen from './screens/CatalogoScreen';
 import DetalhesObraScreen from './screens/DetalhesObraScreen';
 import ReservarExemplarScreen from './screens/ReservarExemplarScreen';
+import { PerfilScreen } from './screens/PerfilScreen'; // 👈 IMPORTAÇÃO CORRIGIDA
 
 // Placeholders mantidos para as telas que ainda serão desenvolvidas
-import { TrabalhosScreen, PerfilScreen } from './screens/Placeholders';
+import { TrabalhosScreen } from './screens/Placeholders';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Menu Inferior (Bottom Navigation Bar)
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#1e3a8a', // Azul UniPúnguè
+        tabBarActiveTintColor: '#1e3a8a',
         tabBarInactiveTintColor: '#64748b',
         tabBarStyle: {
           height: 62,
@@ -83,20 +83,11 @@ export default function App() {
         initialRouteName="Splash"
         screenOptions={{ headerShown: false }}
       >
-        {/* Rota inicial */}
         <Stack.Screen name="Splash" component={SplashScreen} />
-        
-        {/* Rotas de Autenticação */}
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Cadastro" component={CadastroScreen} />
-
-        {/* Home e navegação principal por Abas */}
         <Stack.Screen name="MainTabs" component={MainTabs} />
-
-        {/* Detalhes da Obra */}
         <Stack.Screen name="DetalhesObra" component={DetalhesObraScreen} />
-
-        {/* ROTA ADICIONADA: Processo de Reserva do Exemplar */}
         <Stack.Screen name="ReservarExemplar" component={ReservarExemplarScreen} />
       </Stack.Navigator>
     </NavigationContainer>

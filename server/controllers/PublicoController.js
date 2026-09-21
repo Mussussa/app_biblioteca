@@ -222,101 +222,98 @@ async obterObraPorId(req, res) {
       });
     }
   },
-
 async criarReserva(req, res) {
-    try {
-      console.log('--- [DEBUG] Início de criarReserva ---');
-      console.log('[DEBUG] req.body recebido:', JSON.stringify(req.body));
-      console.log('[DEBUG] req.user recebido do middleware:', req.user);
-      console.log('[DEBUG] Header Authorization:', req.headers.authorization);
+  try {
+    console.log('--- [DEBUG] Início de criarReserva ---');
+    const { obra_id, exemplar_id, data_prevista_levantamento } = req.body;
 
-      const { obra_id, exemplar_id, utilizador_id } = req.body;
-
-      // 1. Validações básicas de entrada
-      if (!obra_id || !exemplar_id) {
-        console.log('[DEBUG] Falha: obra_id ou exemplar_id em falta.');
-        return res.status(400).json({ 
-          erro: 'Os campos obra_id e exemplar_id são obrigatórios.' 
-        });
-      }
-
-      // Se não houver utilizador_id vindo do body ou de middleware de autenticação (req.user.id)
-const idUsuario = req.utilizador ? req.utilizador.id : null;
-      console.log('[DEBUG] idUsuario resolvido:', idUsuario);
-
-      if (!idUsuario) {
-        console.log('[DEBUG] Falha: Utilizador não identificado (idUsuario é null/undefined).');
-        return res.status(400).json({
-          erro: 'Utilizador não identificado para efetuar a reserva.'
-        });
-      }
-
-      // 2. Verificar se o exemplar existe, se pertence à obra e se está disponível
-      const exemplar = await ExemplarFisico.findOne({
-        where: {
-          id: exemplar_id,
-          obra_id: obra_id
-        }
-      });
-
-      if (!exemplar) {
-        console.log('[DEBUG] Falha: Exemplar não encontrado para esta obra.');
-        return res.status(404).json({ 
-          erro: 'Exemplar não encontrado para esta obra.' 
-        });
-      }
-
-      console.log('[DEBUG] Estado atual do exemplar:', exemplar.estado);
-      if (exemplar.estado !== 'disponivel') {
-        console.log('[DEBUG] Falha: Exemplar indisponível.');
-        return res.status(400).json({ 
-          erro: `Este exemplar não está disponível para reserva (Estado atual: ${exemplar.estado}).` 
-        });
-      }
-
-      // 3. Verificar se o utilizador já tem uma reserva ativa para este mesmo exemplar
-      const reservaExistente = await Reserva.findOne({
-        where: {
-          utilizador_id: idUsuario,
-          exemplar_id: exemplar_id,
-          estado: 'pendente'
-        }
-      });
-
-      if (reservaExistente) {
-        console.log('[DEBUG] Falha: Utilizador já possui reserva pendente para este exemplar.');
-        return res.status(400).json({ 
-          erro: 'Você já possui uma reserva pendente para este exemplar.' 
-        });
-      }
-
-      // 4. Criar o registo da Reserva com estado 'pendente'
-      const novaReserva = await Reserva.create({
-        utilizador_id: idUsuario,
-        obra_id: obra_id,
-        exemplar_id: exemplar_id,
-        data_reserva: new Date(),
-        estado: 'pendente'
-      });
-      console.log('[DEBUG] Reserva criada com sucesso, ID:', novaReserva.id);
-
-      // 5. Atualizar o estado do exemplar físico para "reservado"
-      await exemplar.update({ estado: 'reservado' });
-      console.log('[DEBUG] Estado do exemplar atualizado para "reservado".');
-
-      return res.status(201).json({
-        mensagem: 'Reserva solicitada com sucesso!',
-        reserva: novaReserva
-      });
-
-    } catch (error) {
-      console.error('--- [DEBUG] Erro crítico ao criar reserva ---', error);
-      return res.status(500).json({ 
-        erro: 'Erro interno ao processar a solicitação de reserva.',
-        detalhes: error.message 
+    if (!obra_id || !exemplar_id || !data_prevista_levantamento) {
+      return res.status(400).json({ 
+        erro: 'Os campos obra_id, exemplar_id e data_prevista_levantamento são obrigatórios.' 
       });
     }
-  },
+
+    // 💡 OTIMIZAÇÃO: Busca o ID em qualquer propriedade injetada pelo middleware de autenticação
+    const idUsuario = req.utilizador?.id || req.user?.id || req.usuario?.id || req.user?.sub;
+
+    if (!idUsuario) {
+      return res.status(401).json({ 
+        erro: 'Utilizador não autenticado ou token inválido.' 
+      });
+    }
+
+    // --- Validação de Data e Hora ---
+    const dataAgendada = new Date(data_prevista_levantamento);
+    const agora = new Date();
+
+    if (dataAgendada <= agora) {
+      return res.status(400).json({ erro: 'A data e hora de levantamento devem ser no futuro.' });
+    }
+
+    const diaSemana = dataAgendada.getDay(); // 0 = Dom, 6 = Sáb
+    if (diaSemana === 0 || diaSemana === 6) {
+      return res.status(400).json({ erro: 'O levantamento só pode ser feito de Segunda a Sexta-feira.' });
+    }
+
+    const horaAgendada = dataAgendada.getHours();
+    if (horaAgendada < 8 || horaAgendada >= 15) {
+      return res.status(400).json({ erro: 'O horário de levantamento deve ser entre as 08:00 e as 15:00.' });
+    }
+
+    // --- Verificar se o Exemplar existe ---
+    const exemplar = await ExemplarFisico.findOne({
+      where: { id: exemplar_id, obra_id: obra_id }
+    });
+
+    if (!exemplar) {
+      return res.status(404).json({ erro: 'Exemplar não encontrado para esta obra.' });
+    }
+
+    // --- Verificar conflito de datas para este exemplar ---
+    const inicioDoDiaAgendado = new Date(dataAgendada);
+    inicioDoDiaAgendado.setHours(0, 0, 0, 0);
+
+    const fimDoDiaAgendado = new Date(dataAgendada);
+    fimDoDiaAgendado.setHours(23, 59, 59, 999);
+
+    const reservaConflituante = await Reserva.findOne({
+      where: {
+        exemplar_id: exemplar_id,
+        estado: ['pendente', 'pronto_levantamento'],
+        data_prevista_levantamento: {
+          [Op.between]: [inicioDoDiaAgendado, fimDoDiaAgendado]
+        }
+      }
+    });
+
+    if (reservaConflituante) {
+      return res.status(400).json({ 
+        erro: 'Este exemplar já possui um agendamento de reserva para a data solicitada.' 
+      });
+    }
+
+    // --- Criar o registo da Reserva ---
+    const novaReserva = await Reserva.create({
+      utilizador_id: idUsuario, // 💡 ID garantido e não nulo
+      exemplar_id: exemplar_id,
+      data_reserva: new Date(),
+      data_prevista_levantamento: dataAgendada,
+      estado: 'pendente'
+    });
+
+    return res.status(201).json({
+      mensagem: 'Reserva agendada com sucesso! O livro estará reservado na data solicitada.',
+      reserva: novaReserva
+    });
+
+  } catch (error) {
+    console.error('--- Erro crítico ao criar reserva ---', error);
+    return res.status(500).json({ 
+      erro: 'Erro interno ao processar a solicitação de reserva.',
+      detalhes: error.message 
+    });
+  }
+}
 };
 
 module.exports = PublicoController;

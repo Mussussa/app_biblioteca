@@ -91,7 +91,7 @@ async registarObra(req, res) {
       } else {
         throw new Error(uploadError.message);
       }
-    }j
+    }
 
     return res.status(201).json({ mensagem: 'Obra e ficheiros registados com sucesso!', novaObra });
   } catch (error) {

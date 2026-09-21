@@ -1,4 +1,4 @@
-const { Reserva, Utilizador, Obra, ExemplarFisico, Emprestimo } = require('../models');
+const { Reserva, Utilizador, Obra, ExemplarFisico, Emprestimo , sequelize} = require('../models');
 
 module.exports = {
   async listarReservas(req, res) {
@@ -17,42 +17,70 @@ module.exports = {
   },
 
 async confirmarReserva(req, res) {
-    try {
-      const { id } = req.params;
-      
-      const reserva = await Reserva.findByPk(id);
-      if (!reserva) return res.status(404).json({ erro: 'Reserva não encontrada' });
+  // Inicia uma transação para garantir integridade dos dados
+  const t = await sequelize.transaction();
 
-      // Obtém o exemplar_id diretamente do registo da reserva
-      const exemplar_id = reserva.exemplar_id;
+  try {
+    const { id } = req.params;
 
-      const exemplar = await ExemplarFisico.findByPk(exemplar_id);
-      if (!exemplar || exemplar.estado !== 'disponivel') {
-        return res.status(400).json({ erro: 'Exemplar não disponível.' });
-      }
-
-      reserva.estado = 'concluido';
-      await reserva.save();
-
-      const data_limite = new Date();
-      data_limite.setDate(data_limite.getDate() + 14);
-
-      const emprestimo = await Emprestimo.create({ 
-        utilizador_id: reserva.utilizador_id, 
-        exemplar_id, 
-        data_limite_devolucao: data_limite, 
-        estado: 'ativo' 
-      });
-      
-      await ExemplarFisico.update({ estado: 'emprestado' }, { where: { id: exemplar_id } });
-
-      res.json({ mensagem: 'Reserva confirmada!', emprestimo });
-    } catch (error) {
-      console.log("erro ao confirmar reserva: " , error);
-      res.status(500).json({ erro: 'Erro ao confirmar reserva', detalhes: error.message });
+    const reserva = await Reserva.findByPk(id, { transaction: t });
+    if (!reserva) {
+      await t.rollback();
+      return res.status(404).json({ erro: 'Reserva não encontrada.' });
     }
-  },
 
+    if (reserva.estado !== 'pendente' && reserva.estado !== 'pronto_levantamento') {
+      await t.rollback();
+      return res.status(400).json({ erro: 'Esta reserva já foi processada ou cancelada.' });
+    }
+
+    const exemplar = await ExemplarFisico.findByPk(reserva.exemplar_id, { transaction: t });
+    
+    // 💡 AJUSTE PRINCIPAL: O exemplar pode estar 'disponivel' OU 'reservado'
+    if (!exemplar || (exemplar.estado !== 'disponivel' && exemplar.estado !== 'reservado')) {
+      await t.rollback();
+      return res.status(400).json({ 
+        erro: `Não é possível confirmar. O exemplar encontra-se com o estado: ${exemplar?.estado || 'desconhecido'}.` 
+      });
+    }
+
+    // 1. Atualizar o estado da Reserva para 'concluido'
+    reserva.estado = 'concluido';
+    await reserva.save({ transaction: t });
+
+    // 2. Definir a data limite de devolução (14 dias)
+    const data_limite = new Date();
+    data_limite.setDate(data_limite.getDate() + 14);
+
+    // 3. Criar o novo registo de Empréstimo
+    const emprestimo = await Emprestimo.create({ 
+      utilizador_id: reserva.utilizador_id, 
+      exemplar_id: reserva.exemplar_id, 
+      data_limite_devolucao: data_limite, 
+      estado: 'ativo' 
+    }, { transaction: t });
+
+    // 4. Atualizar o estado do Exemplar Físico para 'emprestado'
+    await exemplar.update({ estado: 'emprestado' }, { transaction: t });
+
+    // Confirma todas as operações na base de dados
+    await t.commit();
+
+    return res.json({ 
+      mensagem: 'Reserva confirmada e empréstimo gerado com sucesso!', 
+      emprestimo 
+    });
+
+  } catch (error) {
+    // Desfaz as alterações se ocorrer algum erro
+    await t.rollback();
+    console.error("Erro ao confirmar reserva:", error);
+    return res.status(500).json({ 
+      erro: 'Erro ao confirmar reserva.', 
+      detalhes: error.message 
+    });
+  }
+},
   async eliminarReserva(req, res) {
     try {
       await Reserva.destroy({ where: { id: req.params.id } });

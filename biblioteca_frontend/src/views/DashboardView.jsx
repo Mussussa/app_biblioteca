@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, CheckCircle, Repeat, AlertTriangle, Users, Bookmark, ArrowRight } from "lucide-react";
+import { BookOpen, CheckCircle, Repeat, AlertTriangle, Users, Bookmark, ArrowRight, Calendar, Clock } from "lucide-react";
 
 function MetricCard({ icon, label, value, color, border }) {
   return (
@@ -20,6 +20,7 @@ export default function DashboardView({ loading, metricas, emprestimosRecentes, 
 
   return (
     <div className="space-y-6">
+      {/* Cards de Métricas */}
       <div className="grid grid-cols-6 gap-4">
         <MetricCard icon={<BookOpen className="text-purple-600" />} label="Total de Livros" value={metricas?.totalLivros || 0} color="bg-purple-50" border="border-purple-200" />
         <MetricCard icon={<CheckCircle className="text-emerald-600" />} label="Livros Disponíveis" value={metricas?.livrosDisponiveis || 0} color="bg-emerald-50" border="border-emerald-200" />
@@ -29,7 +30,7 @@ export default function DashboardView({ loading, metricas, emprestimosRecentes, 
         <MetricCard icon={<Bookmark className="text-rose-600" />} label="Reservas Pendentes" value={metricas?.reservasPendentes || 0} color="bg-rose-50" border="border-rose-200" />
       </div>
 
-      {/* Secção de Reservas Pendentes (Alinhada com o JSON do dashboard) */}
+      {/* Secção de Reservas Pendentes Atualizada */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xs font-bold text-slate-800">Reservas Pendentes Recentes</h3>
@@ -37,41 +38,72 @@ export default function DashboardView({ loading, metricas, emprestimosRecentes, 
             Ver todas <ArrowRight className="w-3 h-3" />
           </button>
         </div>
-        <table className="w-full text-left text-xs">
-          <thead>
-            <tr className="border-b border-slate-200 text-slate-400 font-semibold">
-              <th className="pb-2">Código</th>
-              <th className="pb-2">Estudante</th>
-              <th className="pb-2">Obra</th>
-              <th className="pb-2">Data da Reserva</th>
-              <th className="pb-2">Ação</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {reservasPendentes?.length > 0 ? (
-              reservasPendentes.map((res) => (
-                <tr key={res.id} className="hover:bg-slate-50">
-                  <td className="py-2.5 font-bold text-slate-700">{res.codigo_reserva}</td>
-                  <td className="py-2.5 font-medium">{res.Utilizador?.nome_completo}</td>
-                  <td className="py-2.5 text-slate-600">{res.Obra?.titulo}</td>
-                  <td className="py-2.5 text-slate-500">{new Date(res.data_reserva).toLocaleDateString()}</td>
-                  <td className="py-2.5">
-                    <button 
-                      onClick={() => onConfirmarReserva(res.id)}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-[10px] font-bold"
-                    >
-                      Confirmar
-                    </button>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-400 font-semibold">
+                <th className="pb-2">Cód. Reserva</th>
+                <th className="pb-2">Estudante</th>
+                <th className="pb-2">Obra / Exemplar</th>
+                <th className="pb-2">Data da Reserva</th>
+                <th className="pb-2">Prev. Levantamento</th>
+                <th className="pb-2 text-right">Ação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {reservasPendentes?.length > 0 ? (
+                reservasPendentes.map((res) => {
+                  const obraTitulo = res.ExemplarFisico?.Obra?.titulo || res.Obra?.titulo || "Obra Desconhecida";
+                  const codigoExemplar = res.ExemplarFisico?.codigo_exemplar;
+
+                  return (
+                    <tr key={res.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-2.5 font-bold text-blue-600">{res.codigo_reserva}</td>
+                      <td className="py-2.5">
+                        <div className="font-medium text-slate-800">{res.Utilizador?.nome_completo || "N/A"}</div>
+                        <div className="text-[10px] text-slate-400">{res.Utilizador?.codigo_institucional}</div>
+                      </td>
+                      <td className="py-2.5">
+                        <div className="text-slate-700 font-medium line-clamp-1">{obraTitulo}</div>
+                        {codigoExemplar && (
+                          <div className="text-[10px] text-slate-400">Exemplar: {codigoExemplar}</div>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-slate-500">
+                        {new Date(res.data_reserva).toLocaleDateString()}
+                      </td>
+                      <td className="py-2.5">
+                        {res.data_prevista_levantamento ? (
+                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-[11px] border border-amber-200">
+                            <Clock className="w-3 h-3" />
+                            {new Date(res.data_prevista_levantamento).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">Não informada</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        <button 
+                          onClick={() => onConfirmarReserva(res.id)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-[10px] font-bold shadow-sm transition-colors"
+                        >
+                          Confirmar
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="6" className="py-6 text-center text-slate-400">
+                    Nenhuma reserva pendente de momento.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="5" className="py-4 text-center text-slate-400">Nenhuma reserva pendente de momento.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Tabela de Empréstimos Recentes */}

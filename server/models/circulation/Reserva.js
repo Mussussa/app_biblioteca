@@ -1,3 +1,4 @@
+// C:\Users\administrator\Documents\biblioteca_app\server\models\circulation\Reserva.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -5,19 +6,32 @@ module.exports = (sequelize) => {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     codigo_reserva: { type: DataTypes.STRING, allowNull: false, unique: true },
     data_reserva: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    
+    // NOVO CAMPO: Data e hora sugerida pelo utilizador
+    data_prevista_levantamento: { type: DataTypes.DATE, allowNull: true }, 
+    
     data_limite_levantamento: { type: DataTypes.DATE },
     estado: {
       type: DataTypes.ENUM('pendente', 'pronto_levantamento', 'cancelado', 'concluido'),
       defaultValue: 'pendente'
     },
+    // CAMPO UTILIZADOR
+    utilizador_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'utilizadores',
+        key: 'id'
+      }
+    },
     exemplar_id: {
-  type: DataTypes.INTEGER,
-  allowNull: false,
-  references: {
-    model: 'exemplares_fisicos', // ou o nome correto da tabela de exemplares
-    key: 'id'
-  }
-}
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'exemplares_fisicos',
+        key: 'id'
+      }
+    }
   }, { 
     tableName: 'reservas', 
     timestamps: true,
@@ -31,5 +45,3 @@ module.exports = (sequelize) => {
     }
   });
 };
-
-//C:\Users\administrator\Documents\biblioteca_app\server\models\circulation\Reserva.js

@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-// Importação nomeada entre chaves {} para bater exatamente com a declaração "export function TrabalhosScreen"
 import { TrabalhosScreen as TrabalhosComponent } from './TrabalhosScreen';
-import {PerfilScreen } from './PerfilScreen'
+import { PerfilScreen as PerfilComponent } from './PerfilScreen';
+
 export function CatalogoScreen() {
   return (
     <View style={styles.center}>
@@ -15,12 +15,8 @@ export function TrabalhosScreen() {
   return <TrabalhosComponent />;
 }
 
-export function PerfilScreen() {
-  return (
-    <View style={styles.center}>
-      <PerfilScreen />
-    </View>
-  );
+export function PerfilScreen({ navigation }) {
+  return <PerfilComponent navigation={navigation} />;
 }
 
 const styles = StyleSheet.create({

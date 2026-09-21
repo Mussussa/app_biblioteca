@@ -16,7 +16,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 
 export default function ReservarExemplarScreen({ route, navigation }) {
-  const { obra } = route.params || {};
+  // 1. Recebemos a obra E a data prevista de levantamento enviada pelo ecrã de detalhes
+  const { obra, data_prevista_levantamento } = route.params || {};
   const exemplares = obra?.ExemplarFisicos || [];
 
   const [selectedExemplar, setSelectedExemplar] = useState(null);
@@ -38,9 +39,14 @@ export default function ReservarExemplarScreen({ route, navigation }) {
     if (callback) callback();
   };
 
-const handleConfirmarReserva = async () => {
+  const handleConfirmarReserva = async () => {
     if (!selectedExemplar) {
       Alert.alert('Atenção', 'Selecione um exemplar disponível para reservar.');
+      return;
+    }
+
+    if (!data_prevista_levantamento) {
+      Alert.alert('Atenção', 'Data de levantamento não definida. Por favor, volte atrás e selecione a data.');
       return;
     }
 
@@ -66,12 +72,13 @@ const handleConfirmarReserva = async () => {
         return;
       }
 
-      // 2. SE ESTIVER LOGADO, FAZ A CHAMADA PARA A API PASSANDO O TOKEN NO HEADER
+      // 2. ENVIAR A RESERVA PARA A API PASSANDO A DATA DE LEVANTAMENTO
       const response = await api.post(
         '/api/public/reservas', 
         {
           obra_id: obra.id,
           exemplar_id: selectedExemplar.id,
+          data_prevista_levantamento: data_prevista_levantamento, // <-- Enviado para a base de dados
         },
         {
           headers: {
@@ -126,6 +133,13 @@ const handleConfirmarReserva = async () => {
           {obra?.Categorium && (
             <Text style={styles.categoriaObra}>
               Categoria: {obra.Categorium.nome}
+            </Text>
+          )}
+          
+          {/* Opcional: Mostrar a data escolhida para o utilizador confirmar visualmente */}
+          {data_prevista_levantamento && (
+            <Text style={styles.dataLevantamentoText}>
+              📅 Levantamento previsto: {new Date(data_prevista_levantamento).toLocaleString('pt-PT', { dateStyle: 'medium', timeStyle: 'short' })}
             </Text>
           )}
         </View>
@@ -223,7 +237,8 @@ const styles = StyleSheet.create({
   },
   tituloObra: { fontSize: 16, fontWeight: 'bold', color: '#0f172a', marginBottom: 4 },
   autorObra: { fontSize: 13, color: '#64748b', marginBottom: 2 },
-  categoriaObra: { fontSize: 12, color: '#2563eb', fontWeight: '500' },
+  categoriaObra: { fontSize: 12, color: '#2563eb', fontWeight: '500', marginBottom: 6 },
+  dataLevantamentoText: { fontSize: 12, color: '#047857', fontWeight: 'bold', marginTop: 6 },
   sectionTitle: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 12 },
   exemplarCard: {
     flexDirection: 'row',

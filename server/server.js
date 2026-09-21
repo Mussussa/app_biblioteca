@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const publicoRoutes = require('./routes/publicoRoutes');
 const perfilRoutes = require('./routes/perfilRoutes');
+const iniciarCronJobs = require('./services/cronService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +34,8 @@ sequelize.sync({ alter: true })
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
     });
+
+    iniciarCronJobs();
   })
   .catch((err) => {
     console.error('Erro ao conectar ou sincronizar o banco:', err);

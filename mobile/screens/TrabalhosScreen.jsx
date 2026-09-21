@@ -97,6 +97,11 @@ export function TrabalhosScreen() {
 
   return (
     <View style={styles.container}>
+        <View>
+            <Text style={styles.header}>
+                Repositorio
+            </Text>
+        </View>
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.input}
@@ -148,6 +153,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, 
     fontSize: 14, 
     color: '#0f172a' 
+  },
+  header:{
+    fontSize: 50
   },
   searchButton: { 
     backgroundColor: '#2563eb', 

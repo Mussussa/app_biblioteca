@@ -63,6 +63,10 @@ Emprestimo.belongsTo(ExemplarFisico, { foreignKey: 'exemplar_id' });
 Utilizador.hasMany(Reserva, { foreignKey: 'utilizador_id' });
 Reserva.belongsTo(Utilizador, { foreignKey: 'utilizador_id' });
 
+// 💡 Relação corrigida: Reserva aponta para ExemplarFisico
+ExemplarFisico.hasMany(Reserva, { foreignKey: 'exemplar_id' });
+Reserva.belongsTo(ExemplarFisico, { foreignKey: 'exemplar_id' });
+
 Obra.hasMany(Reserva, { foreignKey: 'obra_id' });
 Reserva.belongsTo(Obra, { foreignKey: 'obra_id' });
 
